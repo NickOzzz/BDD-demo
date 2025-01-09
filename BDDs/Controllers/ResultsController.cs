@@ -1,4 +1,5 @@
 using BDDs.ValidationService;
+using LaYumba.Functional;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BDDs.Controllers
@@ -7,10 +8,17 @@ namespace BDDs.Controllers
     [Route("api/[controller]")]
     public class ResultsController : ControllerBase
     {
+        private readonly INameValidation _nameValidation;
+
+        public ResultsController(INameValidation nameValidation)
+            => _nameValidation = nameValidation;
+
         [HttpPost("post-result/{name}")]
-        public IActionResult Post(string name)
-            => name.Validate()
-                 .Match(invalid => new BadRequestObjectResult(new { message = "name is not valid" }) as IActionResult,
-                        valid => new OkObjectResult(new { message = "name is valid" }));
+        public Task<IActionResult> Post(string name)
+            => _nameValidation.Validate(name)
+                .Map(result => result
+                    .Match(
+                        Invalid: invalid => new BadRequestObjectResult(new { errors = invalid.Select(error => error.Message) }) as IActionResult,
+                        Valid: valid => new OkObjectResult(new { message = valid })));
     }
 }
